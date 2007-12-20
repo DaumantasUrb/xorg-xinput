@@ -35,6 +35,7 @@ print_info(XDeviceInfo	*info, Bool shortformat)
     XValuatorInfoPtr	v;
     XAxisInfoPtr	a;
     XAttachInfoPtr      att;
+    XBlobInfoPtr	blob;
 
     printf("\"%s\"\tid=%ld\t[", info->name, info->id);
 
@@ -97,7 +98,47 @@ print_info(XDeviceInfo	*info, Bool shortformat)
                 att = (XAttachInfoPtr)any;
                 printf("\tAttached to %d\n", att->attached);
                 break;
+            case BlobClass:
+                {
+                    int num_axes, identifiers;
+                    Atom* atom;
+                    blob = (XBlobInfoPtr)any;
+                    printf("\tNum_buttons  is %d\n", blob->num_buttons);
+                    printf("\tCapabilities are:\n");
+                    if (blob->capabilities & BC_Elevation)
+                        printf("\t\tElevation\n");
+                    if (blob->capabilities & BC_Rotation)
+                        printf("\t\tRotation\n");
+                    if (blob->capabilities & BC_Multiblob)
+                        printf("\t\tMultiblob\n");
+                    if (blob->capabilities & BC_Multibutton)
+                        printf("\t\tMultibutton\n");
+                    if (blob->capabilities & BC_Intensity)
+                        printf("\t\tIntensity\n");
+                    if (blob->capabilities & BC_Data)
+                        printf("\t\tData\n");
+                    if (blob->capabilities & BC_Identifier)
+                        printf("\t\tIdentifier\n");
 
+                    num_axes = (blob->capabilities & BC_Elevation) ? 3 : 2;
+                    a = (XAxisInfoPtr)&blob[1];
+                    for (j=0; j < num_axes; j++, a++) {
+                        printf("\tAxis %d :\n", j);
+                        printf("\t\tMin_value is %d\n", a->min_value);
+                        printf("\t\tMax_value is %d\n", a->max_value);
+                        printf ("\t\tResolution is %d\n", a->resolution);
+                    }
+
+                    identifiers = blob->num_identifiers;
+                    atom = blob->identifiers;
+                    printf("\tKnown identifiers:\n");
+                    while(identifiers--)
+                    {
+                        printf("\t%ld\n", *atom);
+                        atom++;
+                    }
+                }
+                break;
 	    default:
 		printf ("unknown class\n");
 	    }
