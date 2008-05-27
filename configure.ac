@@ -8,6 +8,8 @@ AM_MAINTAINER_MODE
 
 AM_CONFIG_HEADER(config.h)
 
+AC_MSG_ERROR([Branch is discontinued. Please use master branch instead])
+
 AC_PROG_CC
 AC_PROG_INSTALL
 
