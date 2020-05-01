@@ -22,9 +22,9 @@
  *
  */
 
-
 #include "xinput.h"
 #include <string.h>
+#include <time.h>
 
 extern void print_classes_xi2(Display*, XIAnyClassInfo **classes,
                               int num_classes);
@@ -95,6 +95,12 @@ static void print_deviceevent(XIDeviceEvent* event)
 
     printf("    windows: root 0x%lx event 0x%lx child 0x%lx\n",
             event->root, event->event, event->child);
+}
+
+
+static void print_detail(XIDeviceEvent* event)
+{
+    printf("%d\n", event->detail);
 }
 
 static void print_devicechangedevent(Display *dpy, XIDeviceChangedEvent *event)
@@ -464,6 +470,135 @@ test_xi2(Display	*display,
                     break;
                 default:
                     print_deviceevent(cookie->data);
+                    break;
+            }
+        }
+
+        XFreeEventData(display, cookie);
+    }
+
+    XDestroyWindow(display, win);
+
+    return EXIT_SUCCESS;
+}
+
+int
+keylog(Display	*display,
+         int	argc,
+         char	*argv[],
+         char	*name,
+         char	*desc)
+{
+    XIEventMask mask[2];
+    XIEventMask *m;
+    Window win;
+    int deviceid = -1;
+    int use_root = 0;
+    int rc;
+    time_t msec;
+
+    setvbuf(stdout, NULL, _IOLBF, 0);
+
+    if (argc >= 1 && strcmp(argv[0], "--root") == 0) {
+        use_root = 1;
+
+        argc--;
+        argv++;
+    }
+
+    rc = list(display, argc, argv, name, desc);
+    if (rc != EXIT_SUCCESS)
+        return rc;
+
+    if (use_root)
+        win = DefaultRootWindow(display);
+    else
+        win = create_win(display);
+
+    if (argc >= 1) {
+        XIDeviceInfo *info;
+        info = xi2_find_device_info(display, argv[0]);
+        /* info is alway valid, the list() call exits if the device
+           cannot be found, but let's shut up coverity */
+        if (!info)
+            return EXIT_FAILURE;
+        deviceid = info->deviceid;
+    }
+
+    /* Select for motion events */
+    m = &mask[0];
+    m->deviceid = (deviceid == -1) ? XIAllDevices : deviceid;
+    m->mask_len = XIMaskLen(XI_LASTEVENT);
+    m->mask = calloc(m->mask_len, sizeof(char));
+    XISetMask(m->mask, XI_ButtonPress);
+    XISetMask(m->mask, XI_ButtonRelease);
+    XISetMask(m->mask, XI_KeyPress);
+    XISetMask(m->mask, XI_KeyRelease);
+    XISetMask(m->mask, XI_Motion);
+    XISetMask(m->mask, XI_DeviceChanged);
+    XISetMask(m->mask, XI_Enter);
+    XISetMask(m->mask, XI_Leave);
+    XISetMask(m->mask, XI_FocusIn);
+    XISetMask(m->mask, XI_FocusOut);
+#if HAVE_XI22
+    XISetMask(m->mask, XI_TouchBegin);
+    XISetMask(m->mask, XI_TouchUpdate);
+    XISetMask(m->mask, XI_TouchEnd);
+#endif
+    if (m->deviceid == XIAllDevices)
+        XISetMask(m->mask, XI_HierarchyChanged);
+    XISetMask(m->mask, XI_PropertyEvent);
+
+    m = &mask[1];
+    m->deviceid = (deviceid == -1) ? XIAllMasterDevices : deviceid;
+    m->mask_len = XIMaskLen(XI_LASTEVENT);
+    m->mask = calloc(m->mask_len, sizeof(char));
+    XISetMask(m->mask, XI_RawKeyPress);
+    XISetMask(m->mask, XI_RawKeyRelease);
+    XISetMask(m->mask, XI_RawButtonPress);
+    XISetMask(m->mask, XI_RawButtonRelease);
+    XISetMask(m->mask, XI_RawMotion);
+#if HAVE_XI22
+    XISetMask(m->mask, XI_RawTouchBegin);
+    XISetMask(m->mask, XI_RawTouchUpdate);
+    XISetMask(m->mask, XI_RawTouchEnd);
+#endif
+
+    XISelectEvents(display, win, &mask[0], use_root ? 2 : 1);
+    if (!use_root) {
+        XISelectEvents(display, DefaultRootWindow(display), &mask[1], 1);
+        XMapWindow(display, win);
+    }
+    XSync(display, False);
+
+    free(mask[0].mask);
+    free(mask[1].mask);
+
+    if (!use_root) {
+        XEvent event;
+        XMaskEvent(display, ExposureMask, &event);
+        XSelectInput(display, win, 0);
+    }
+
+    while(1)
+    {
+        XEvent ev;
+        XGenericEventCookie *cookie = (XGenericEventCookie*)&ev.xcookie;
+        XNextEvent(display, (XEvent*)&ev);
+
+        if (XGetEventData(display, cookie) &&
+            cookie->type == GenericEvent &&
+            cookie->extension == xi_opcode)
+        {
+            switch (cookie->evtype)
+            {
+                case XI_RawKeyPress:
+                case XI_RawKeyRelease:
+                    msec = time(NULL);
+                    printf("%ld %d ", msec, cookie->evtype);
+                    print_detail(cookie->data);
+                    break;
+                default:
                     break;
             }
         }
