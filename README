@@ -27,3 +27,10 @@ make
 make install
 
 See the INSTALL file for details.
+
+Changelog
+=========
+2020-05-01
+Added command "xinput keylog"
+logs only keyboard keydown and keyup events, format per line:
+`{timestamp} {input type} {key code}`
