@@ -248,6 +248,7 @@ print_classes_xi2(Display* display, XIAnyClassInfo **classes,
 static void
 print_info_xi2(Display* display, XIDeviceInfo *dev, enum print_format format)
 {
+    return;
     if (format == FORMAT_NAME)
     {
         printf("%s\n", dev->name);
@@ -303,26 +304,10 @@ list_xi2(Display *display,
         dev = &info[i];
         if (dev->use == XIMasterPointer || dev->use == XIMasterKeyboard)
         {
-            if (format == FORMAT_SHORT || format == FORMAT_LONG)
-            {
-                if (dev->use == XIMasterPointer)
-                    printf("⎡ ");
-                else
-                    printf("⎣ ");
-            }
-
             print_info_xi2(display, dev, format);
             for (j = 0; j < ndevices; j++)
             {
                 XIDeviceInfo* sd = &info[j];
-
-                if ((sd->use == XISlavePointer || sd->use == XISlaveKeyboard) &&
-                     (sd->attachment == dev->deviceid))
-                {
-                    if (format == FORMAT_SHORT || format == FORMAT_LONG)
-                        printf("%s   ↳ ", dev->use == XIMasterPointer ? "⎜" : " ");
-                    print_info_xi2(display, sd, format);
-                }
             }
         }
     }
